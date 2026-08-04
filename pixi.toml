@@ -1,0 +1,30 @@
+[workspace]
+authors = ["Lee Penkman <leepenkman@gmail.com>"]
+channels = ["https://conda.modular.com/max-nightly", "conda-forge", "bioconda"]
+name = "mojo-umi-tools"
+platforms = ["linux-64"]
+version = "0.1.0"
+
+[tasks]
+build = "bash build/build.sh"
+test = "pixi run build && pixi run --environment upstream python -m pytest tests -q"
+bench = "pixi run build && flock /tmp/mojo-bench.lock pixi run --environment upstream python -u bench/bench.py"
+
+[activation.env]
+PYTHONPATH = "python"
+
+[feature.runtime.dependencies]
+mojo = "==1.0.0b3.dev2026072406"
+python = "3.13.*"
+pytest = "*"
+numpy = "*"
+
+[feature.upstream.dependencies]
+python = "3.9.*"
+pytest = "*"
+numpy = "*"
+umi_tools = "==1.1.6"
+
+[environments]
+default = ["runtime"]
+upstream = ["upstream"]
