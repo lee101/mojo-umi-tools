@@ -56,15 +56,18 @@ candidate buckets. Values are best of three full end-to-end clustering calls.
 
 | case | mojo-umi-tools | umi-tools 1.1.6 | ratio |
 | --- | ---: | ---: | ---: |
-| `directional` (1,000 dense candidates) | 42.6 ms | 160.4 ms | 3.77x faster |
-| `adjacency` (1,000 dense candidates) | 41.1 ms | 349.8 ms | 8.52x faster |
-| `cluster` (1,000 dense candidates) | 46.8 ms | 172.8 ms | 3.69x faster |
+| `directional` (1,000 dense candidates) | 10.1 ms | 161.7 ms | 16.08x faster |
+| `adjacency` (1,000 dense candidates) | 12.7 ms | 349.6 ms | 27.60x faster |
+| `cluster` (1,000 dense candidates) | 13.2 ms | 173.2 ms | 13.13x faster |
 
-The edge kernel uses SIMD for full byte-vector blocks and a scalar tail. No GPU
-mode is provided: Hamming edge construction has under two operations per byte
-moved and is branch-heavy, so host-device transfer would lose to the CPU path.
-Re-run the measured table with `pixi run bench`; the task takes a machine-wide
-flock before timing.
+The edge kernel uses SIMD for full byte-vector blocks and a scalar tail. Dense
+candidate sets are generated directly into their final NumPy buffers by Mojo,
+avoiding temporary triangle and stacked-index arrays. Independent pair work is
+parallelized at 65,536 pairs and remains serial below that threshold. No GPU mode
+is provided: Hamming edge construction has under two operations per byte moved
+and is branch-heavy, so host-device transfer would lose to the CPU path. Re-run
+the measured table with `pixi run bench`; the task takes a machine-wide flock
+before timing.
 
 ## How it works
 

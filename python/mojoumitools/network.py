@@ -9,7 +9,7 @@ from typing import Iterable, Mapping
 
 import numpy as np
 
-from ._lib import pair_edges
+from ._lib import dense_pair_edges, pair_edges
 
 UMI = bytes
 
@@ -124,6 +124,18 @@ class UMIClusterer:
         return flat_indices.reshape((-1, 2))
 
     @staticmethod
+    def _uses_complete_pair_set(umis: list[UMI], threshold: int) -> bool:
+        size = len(umis)
+        if size <= 25:
+            return True
+        index = build_substr_idx(umis, len(umis[0]), threshold)
+        return any(
+            len(bucket) == size
+            for substr_map in index.values()
+            for bucket in substr_map.values()
+        )
+
+    @staticmethod
     def _candidate_pairs(umis: list[UMI], threshold: int) -> list[tuple[UMI, UMI]]:
         indices = UMIClusterer._candidate_pair_indices(umis, threshold)
         return [(umis[left], umis[right]) for left, right in indices]
@@ -138,12 +150,17 @@ class UMIClusterer:
         if any(not isinstance(counts[umi], Integral) or isinstance(counts[umi], bool)
                or counts[umi] < 0 or counts[umi] > limit for umi in umis):
             raise ValueError("UMI counts must be non-negative signed 64-bit integers")
-        indices = UMIClusterer._candidate_pair_indices(umis, threshold)
-        if indices.size == 0:
-            return []
         encoded = np.frombuffer(b"".join(umis), dtype=np.uint8).reshape(len(umis), len(umis[0]))
         frequencies = np.fromiter((counts[umi] for umi in umis), dtype=np.int64, count=len(umis))
-        edge_masks = pair_edges(encoded, indices, frequencies, threshold, directional)
+        if UMIClusterer._uses_complete_pair_set(umis, threshold):
+            indices, edge_masks = dense_pair_edges(
+                encoded, frequencies, threshold, directional
+            )
+        else:
+            indices = UMIClusterer._candidate_pair_indices(umis, threshold)
+            if indices.size == 0:
+                return []
+            edge_masks = pair_edges(encoded, indices, frequencies, threshold, directional)
         return [
             (umis[int(indices[position, 0])], umis[int(indices[position, 1])], int(edge_masks[position]))
             for position in np.flatnonzero(edge_masks)

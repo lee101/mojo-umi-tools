@@ -9,7 +9,7 @@ from umi_tools import UMIClusterer as ReferenceClusterer
 from umi_tools import network as reference_network
 
 import mojoumitools as mut
-from mojoumitools._lib import pair_edges
+from mojoumitools._lib import dense_pair_edges, pair_edges
 
 
 def canonical(groups):
@@ -136,6 +136,17 @@ def test_pair_edges_simd_tail_matches_scalar_hamming_distance():
     pairs = np.array([[0, 1], [0, 2]], dtype=np.int64)
     counts = np.array([10, 1, 1], dtype=np.int64)
     assert pair_edges(sequences, pairs, counts, threshold=1, directional=True).tolist() == [1, 0]
+
+
+@pytest.mark.parametrize("size", [362, 363])
+def test_dense_pair_edges_matches_numpy_across_parallel_threshold(size):
+    sequences = np.resize(np.frombuffer(b"AC", dtype=np.uint8), size).reshape(size, 1)
+    counts = np.ones(size, dtype=np.int64)
+    pairs, edges = dense_pair_edges(sequences, counts, threshold=0, directional=False)
+    left, right = np.triu_indices(size, k=1)
+    expected_pairs = np.column_stack((left, right)).astype(np.int64, copy=False)
+    assert np.array_equal(pairs, expected_pairs)
+    assert np.array_equal(edges, np.where(sequences[left, 0] == sequences[right, 0], 3, 0))
 
 
 def test_pair_edges_rejects_unsafe_or_narrowing_ffi_inputs():
